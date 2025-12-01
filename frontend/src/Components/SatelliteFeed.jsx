@@ -11,7 +11,7 @@ export function SatelliteFeed() {
     const fetchFeed = async () => {
       try {
         // Connect to your Flask backend
-        const res = await axios.get('http://127.0.0.1:5000/feed');
+        const res = await axios.get('https://yatharth-backend.onrender.com/feed');
         setFeed(res.data);
       } catch (err) {
         console.error("Feed signal lost:", err);

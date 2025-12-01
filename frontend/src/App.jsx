@@ -18,7 +18,7 @@ function App() {
       setData({ ...data, mood: "thinking" });
       
       try {
-        const res = await axios.post('http://127.0.0.1:5000/analyze', { claim });
+        const res = await axios.post('https://yatharth-backend.onrender.com/analyze', { claim });
         setData(res.data);
       } catch (err) {
         console.error(err);
