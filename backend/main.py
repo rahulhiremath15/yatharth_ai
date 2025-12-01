@@ -1,51 +1,39 @@
 import os
 from dotenv import load_dotenv
 from langchain_groq import ChatGroq
-from duckduckgo_search import DDGS
+from langchain_community.tools.tavily_search import TavilySearchResults
 from langchain_core.messages import HumanMessage
 from langgraph.graph import StateGraph, END
 from typing import TypedDict
 
-# --- 1. Load Environment Variables ---
-load_dotenv()  # This loads variables from the .env file
+# Load Env
+load_dotenv()
 
-api_key = os.getenv("GROQ_API_KEY")
-if not api_key:
-    # Fallback or error if key is missing
-    print("⚠️ WARNING: GROQ_API_KEY not found in .env file.")
+# --- THE FIX: Use Tavily instead of DuckDuckGo ---
+# Tavily API Key must be set in Render Environment Variables
+search_tool = TavilySearchResults(max_results=5)
 
-# --- 2. Real Search Tool ---
-def search_web(query: str):
-    """Performs a real web search using DuckDuckGo."""
-    try:
-        with DDGS() as ddgs:
-            results = list(ddgs.text(query, region='wt-wt', safesearch='moderate', max_results=5))
-            if not results:
-                return "No results found."
-            return str(results)
-    except Exception as e:
-        return f"Search failed: {str(e)}"
-
-# --- 3. Define the LLM (Groq) ---
-# Using Llama-3-8b for blazing fast speed
 llm = ChatGroq(
-    groq_api_key=api_key, 
-    model_name="llama-3.1-8b-instant", # <--- NEW & FASTER
+    groq_api_key=os.getenv("GROQ_API_KEY"), 
+    model_name="llama-3.1-8b-instant", 
     temperature=0.2
 )
 
-# --- 4. Define State ---
 class AgentState(TypedDict):
     query: str
     research_data: str
     final_verdict: str
 
-# --- 5. Define Nodes ---
 def researcher_node(state: AgentState):
     query = state["query"]
     print(f"\n🔎 Researching: {query}")
-    results = search_web(query)
-    return {"research_data": results}
+    try:
+        # Tavily search
+        results = search_tool.invoke({"query": query})
+        return {"research_data": str(results)}
+    except Exception as e:
+        print(f"Search Error: {e}")
+        return {"research_data": f"Search failed: {str(e)}"}
 
 def synthesizer_node(state: AgentState):
     data = state["research_data"]
@@ -68,18 +56,15 @@ def synthesizer_node(state: AgentState):
     response = llm.invoke([HumanMessage(content=prompt)])
     return {"final_verdict": response.content}
 
-# --- 6. Build Graph ---
 workflow = StateGraph(AgentState)
 workflow.add_node("researcher", researcher_node)
 workflow.add_node("synthesizer", synthesizer_node)
-
 workflow.set_entry_point("researcher")
 workflow.add_edge("researcher", "synthesizer")
 workflow.add_edge("synthesizer", END)
 
 app_graph = workflow.compile()
 
-# Function to be called by API
 def run_agent(claim: str):
     result = app_graph.invoke({"query": claim})
     return result["final_verdict"]
