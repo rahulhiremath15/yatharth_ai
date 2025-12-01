@@ -1,0 +1,16 @@
+# Secrets
+.env
+
+# Heavy Dependencies (Frontend)
+node_modules/
+frontend/node_modules/
+package-lock.json
+
+# Heavy Dependencies (Backend)
+venv/
+backend/venv/
+__pycache__/
+*.pyc
+
+# System files
+.DS_Store

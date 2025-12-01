@@ -1,0 +1,79 @@
+/* frontend/src/Components/SatelliteFeed.css */
+.satellite-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+  width: 90%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding-bottom: 4rem;
+  z-index: 10;
+}
+
+.satellite-card {
+  background: rgba(10, 10, 10, 0.7);
+  border: 1px solid #333;
+  padding: 1.5rem;
+  border-radius: 8px;
+  backdrop-filter: blur(10px);
+  transition: transform 0.3s ease;
+  cursor: default;
+}
+
+.satellite-card:hover {
+  transform: translateY(-5px);
+}
+
+.satellite-card.calm {
+  border-left: 4px solid #00f0ff;
+  box-shadow: 0 4px 20px rgba(0, 240, 255, 0.1);
+}
+
+.satellite-card.spikey {
+  border-left: 4px solid #ff0055;
+  box-shadow: 0 4px 20px rgba(255, 0, 85, 0.1);
+}
+
+.satellite-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.signal-dot {
+  height: 8px;
+  width: 8px;
+  border-radius: 50%;
+  margin-right: 10px;
+  animation: blink 2s infinite;
+}
+
+.calm .signal-dot { background-color: #00f0ff; }
+.spikey .signal-dot { background-color: #ff0055; }
+
+.verdict {
+  font-size: 0.8rem;
+  letter-spacing: 0.1rem;
+  font-weight: bold;
+  color: #aaa;
+}
+
+.claim-text {
+  font-size: 0.95rem;
+  color: #eee;
+  line-height: 1.4;
+}
+
+.feed-loading {
+  text-align: center;
+  color: #00f0ff;
+  font-family: monospace;
+  margin-top: 4rem;
+  animation: blink 1s infinite;
+}
+
+@keyframes blink {
+  0% { opacity: 1; }
+  50% { opacity: 0.4; }
+  100% { opacity: 1; }
+}

@@ -1,0 +1,185 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap');
+
+/* --- GLOBAL RESET & BODY --- */
+body, html {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  background-color: #050505; /* Deep Black */
+  color: white;
+  font-family: 'Inter', sans-serif;
+  overflow: hidden; /* We handle scrolling manually in .main-wrapper */
+}
+
+/* --- LAYOUT WRAPPERS --- */
+
+/* 1. The Main Scroll Wrapper */
+.main-wrapper {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow-y: auto; /* Enable vertical scrolling */
+  overflow-x: hidden;
+  scroll-behavior: smooth;
+}
+
+/* 2. The 3D Canvas Container (Fixed Background) */
+.canvas-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 0;
+}
+
+/* 3. The Content Layer (Scrolls on top) */
+.content-scroll-layer {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+}
+
+/* --- HERO SECTION (Search & Orb Area) --- */
+.hero-section {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+/* --- HEADER (Text Only) --- */
+header {
+  position: absolute;
+  top: 2rem;
+  text-align: center;
+  letter-spacing: 0.5rem;
+  z-index: 10;
+}
+
+header h1 {
+  font-size: 1.5rem;
+  color: #888;
+  margin: 0;
+  font-weight: 600;
+}
+
+header p {
+  font-size: 0.8rem;
+  color: #444;
+  margin-top: 0.5rem;
+}
+
+/* --- SEARCH INPUT --- */
+.search-container {
+  width: 90%;
+  max-width: 600px;
+  margin-bottom: 2rem;
+  z-index: 10;
+}
+
+input {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid #333;
+  padding: 1.5rem;
+  border-radius: 50px;
+  color: white;
+  font-size: 1.2rem;
+  text-align: center;
+  backdrop-filter: blur(10px);
+  outline: none;
+  transition: all 0.3s ease;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+}
+
+input:focus {
+  border-color: #00f0ff;
+  box-shadow: 0 0 40px rgba(0, 240, 255, 0.2);
+}
+
+input:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+/* --- RESULT CARDS --- */
+.result-card {
+  padding: 2rem;
+  background: rgba(0, 0, 0, 0.85);
+  border-radius: 12px;
+  max-width: 500px;
+  text-align: center;
+  backdrop-filter: blur(20px);
+  border: 1px solid #333;
+  margin-bottom: 2rem;
+  transition: all 0.5s ease;
+  z-index: 10;
+}
+
+.result-card h2 {
+  margin-top: 0;
+  letter-spacing: 0.2rem;
+}
+
+.result-card p {
+  line-height: 1.6;
+  color: #ddd;
+}
+
+/* Dynamic Mood Styling */
+.result-card.spikey { 
+  border-color: #ff0055; 
+  box-shadow: 0 0 30px rgba(255, 0, 85, 0.2); 
+  color: #ffbaba;
+}
+
+.result-card.calm { 
+  border-color: #00f0ff; 
+  box-shadow: 0 0 30px rgba(0, 240, 255, 0.2); 
+  color: #baeeff;
+}
+
+.result-card.thinking { 
+  border-color: #ffd700; 
+  box-shadow: 0 0 30px rgba(255, 215, 0, 0.2);
+}
+
+/* --- SCROLL INDICATOR --- */
+.scroll-indicator {
+  position: absolute;
+  bottom: 2rem;
+  color: #555;
+  font-size: 0.8rem;
+  letter-spacing: 0.2rem;
+  animation: bounce 2s infinite;
+  text-align: center;
+  width: 100%;
+}
+
+@keyframes bounce {
+  0%, 20%, 50%, 80%, 100% {transform: translateY(0);}
+  40% {transform: translateY(-10px);}
+  60% {transform: translateY(-5px);}
+}
+
+/* --- FEED SECTION --- */
+.feed-section {
+  min-height: 100vh;
+  background: linear-gradient(to bottom, rgba(5,5,5,0), #050505 40%);
+  padding-top: 4rem;
+  position: relative;
+  z-index: 2;
+}
+
+.feed-section h2 {
+  text-align: center;
+  color: #444;
+  letter-spacing: 0.3rem;
+  margin-bottom: 3rem;
+  font-weight: 300;
+  text-transform: uppercase;
+}
