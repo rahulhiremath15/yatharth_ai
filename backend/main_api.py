@@ -40,6 +40,7 @@ def parse_response(raw_response):
 def analyze():
     data = request.json
     claim = data.get("claim", "")
+    image_url = data.get("imageUrl", None)
     print(f"🔮 Orb analyzing: {claim}")
     
     # Call the Agent

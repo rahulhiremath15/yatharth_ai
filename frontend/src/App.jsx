@@ -8,23 +8,34 @@ import './App.css';
 
 function App() {
   const [claim, setClaim] = useState("");
+  const [imageUrl, setImageUrl] = useState(""); // State for Image URL
+  const [showImageInput, setShowImageInput] = useState(false); // Toggle for image input
   const [data, setData] = useState({ verdict: null, explanation: "", mood: "calm" });
   const [loading, setLoading] = useState(false);
 
+  // Use your live Render Backend URL here
+  const API_URL = "https://yatharth-backend.onrender.com";
+
   const handleSearch = async (e) => {
-    if (e.key === 'Enter' && claim.trim() !== "") {
+    if (e.key === 'Enter') {
+      // Prevent searching if both fields are empty
+      if (!claim.trim() && !imageUrl.trim()) return;
+
       setLoading(true);
-      // Set temporary mood to 'thinking' while we wait
+      // Set temporary mood to 'thinking' (Gold color)
       setData({ ...data, mood: "thinking" });
       
       try {
-        const res = await axios.post('https://yatharth-backend.onrender.com/analyze', { claim });
+        const res = await axios.post(`${API_URL}/analyze`, { 
+            claim: claim,
+            imageUrl: imageUrl 
+        });
         setData(res.data);
       } catch (err) {
         console.error(err);
         setData({ 
           verdict: "ERROR", 
-          explanation: "Connection to Orb interrupted.", 
+          explanation: "Connection to Orb interrupted. Please try again.", 
           mood: "spikey" 
         });
       } finally {
@@ -60,24 +71,65 @@ function App() {
         <section className="hero-section">
           <header>
             <h1>YATHARTH</h1>
-            <p>THE ORB OF CLARITY</p>
+            <p>MULTI-MODAL TRUTH ENGINE</p>
           </header>
 
           <div className="search-container">
+            {/* Main Text Input */}
             <input 
               type="text" 
-              placeholder="Enter a rumor to consult the Orb..." 
+              placeholder={showImageInput ? "Ask a question about the image..." : "Enter a rumor to consult the Orb..."}
               value={claim}
               onChange={(e) => setClaim(e.target.value)}
               onKeyDown={handleSearch}
               disabled={loading}
             />
+
+            {/* Conditional Image URL Input */}
+            {showImageInput && (
+                <input 
+                  type="text" 
+                  placeholder="Paste Image URL here..." 
+                  value={imageUrl}
+                  onChange={(e) => setImageUrl(e.target.value)}
+                  onKeyDown={handleSearch}
+                  disabled={loading}
+                  style={{ 
+                      marginTop: '15px', 
+                      fontSize: '1rem', 
+                      borderColor: '#00f0ff',
+                      background: 'rgba(0, 240, 255, 0.1)' 
+                  }}
+                />
+            )}
+
+            {/* Toggle Button for Image Mode */}
+            <div style={{ display: 'flex', justifyContent: 'center' }}>
+                <button 
+                    onClick={() => setShowImageInput(!showImageInput)}
+                    style={{
+                        background: 'transparent', 
+                        border: 'none', 
+                        color: '#666', 
+                        marginTop: '15px', 
+                        cursor: 'pointer', 
+                        fontSize: '0.8rem', 
+                        letterSpacing: '2px',
+                        transition: 'color 0.3s'
+                    }}
+                    onMouseEnter={(e) => e.target.style.color = '#fff'}
+                    onMouseLeave={(e) => e.target.style.color = '#666'}
+                >
+                    {showImageInput ? "✖ CLOSE IMAGE MODE" : "+ ANALYZE IMAGE"}
+                </button>
+            </div>
           </div>
 
+          {/* Result Display */}
           {data.verdict && (
             <div className={`result-card ${data.mood || 'calm'}`}>
               <h2>{data.verdict.toUpperCase()}</h2>
-              <p>{data.explanation}</p>
+              <p style={{ whiteSpace: 'pre-line' }}>{data.explanation}</p>
             </div>
           )}
 

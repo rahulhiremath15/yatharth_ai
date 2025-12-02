@@ -2,60 +2,117 @@ import os
 from dotenv import load_dotenv
 from langchain_groq import ChatGroq
 from langchain_community.tools.tavily_search import TavilySearchResults
+from serpapi import GoogleSearch
 from langchain_core.messages import HumanMessage
 from langgraph.graph import StateGraph, END
-from typing import TypedDict
+from typing import TypedDict, Optional
 
-# Load Env
 load_dotenv()
 
-# --- THE FIX: Use Tavily instead of DuckDuckGo ---
-# Tavily API Key must be set in Render Environment Variables
-search_tool = TavilySearchResults(max_results=5)
+# --- 1. Define Tools ---
+tavily_tool = TavilySearchResults(max_results=5)
 
+def reverse_image_search(image_url: str):
+    """
+    Uses Google Lens (via SerpApi) to find the original context of an image.
+    Returns a summary of where this image has appeared before.
+    """
+    if not image_url:
+        return "No image provided."
+    
+    print(f"👁️  Scanning Image: {image_url}")
+    try:
+        params = {
+            "api_key": os.getenv("SERPAPI_API_KEY"),
+            "engine": "google_lens",
+            "url": image_url
+        }
+        search = GoogleSearch(params)
+        results = search.get_dict()
+        
+        # Extract meaningful context
+        visual_matches = results.get("visual_matches", [])[:3]
+        knowledge_graph = results.get("knowledge_graph", {})
+        
+        summary = []
+        if knowledge_graph.get("title"):
+            summary.append(f"Image Subject: {knowledge_graph.get('title')}")
+            
+        for match in visual_matches:
+            title = match.get("title", "Unknown")
+            source = match.get("source", "Unknown")
+            date = match.get("date", "Unknown date") # SerpApi sometimes provides dates
+            link = match.get("link", "")
+            summary.append(f"Found on {source}: '{title}' ({link})")
+            
+        return "\n".join(summary) if summary else "No exact visual matches found."
+    except Exception as e:
+        return f"Image Search Failed: {str(e)}"
+
+# --- 2. Define LLM ---
 llm = ChatGroq(
     groq_api_key=os.getenv("GROQ_API_KEY"), 
     model_name="llama-3.1-8b-instant", 
     temperature=0.2
 )
 
+# --- 3. Define State ---
 class AgentState(TypedDict):
     query: str
+    image_url: Optional[str] # <--- NEW FIELD
     research_data: str
     final_verdict: str
 
+# --- 4. Define Nodes ---
 def researcher_node(state: AgentState):
     query = state["query"]
-    print(f"\n🔎 Researching: {query}")
-    try:
-        # Tavily search
-        results = search_tool.invoke({"query": query})
-        return {"research_data": str(results)}
-    except Exception as e:
-        print(f"Search Error: {e}")
-        return {"research_data": f"Search failed: {str(e)}"}
+    image_url = state.get("image_url")
+    
+    findings = []
+    
+    # A. Text Research (Tavily)
+    if query:
+        print(f"\n🔎 Researching Text: {query}")
+        try:
+            text_results = tavily_tool.invoke({"query": query})
+            findings.append(f"TEXT EVIDENCE:\n{str(text_results)}")
+        except:
+            findings.append("Text search failed.")
+
+    # B. Image Research (SerpApi)
+    if image_url:
+        image_results = reverse_image_search(image_url)
+        findings.append(f"IMAGE CONTEXT:\n{image_results}")
+        
+    return {"research_data": "\n\n".join(findings)}
 
 def synthesizer_node(state: AgentState):
     data = state["research_data"]
     query = state["query"]
     
     prompt = f"""
-    You are an expert fact-checker. Analyze this claim based *only* on the search results provided below.
+    You are an expert Multi-Modal Fact Checker. 
+    Analyze the claim and/or image context below.
     
-    Claim: "{query}"
-    Search Results: "{data}"
+    User Claim: "{query}"
+    Research Evidence: "{data}"
     
-    Respond with a raw JSON object (no markdown, no backticks) with this structure:
+    Task:
+    1. If an image is provided, does the 'Image Context' match the User's Claim? (e.g., is the date/location correct?)
+    2. If no image, verify the text claim.
+    
+    Respond with a raw JSON object:
     {{
-        "verdict": "Verified", "False", or "Unverified",
-        "explanation": "A short, clear reason citing the sources.",
-        "mood": "calm" (if true/neutral) or "spikey" (if false/alarmist)
+        "verdict": "Verified", "False", "Misleading", or "Unverified",
+        "explanation": "Clear analysis citing specific sources/dates found.",
+        "mood": "calm" (true), "spikey" (false/misleading), or "thinking" (unclear)
     }}
     """
     
     response = llm.invoke([HumanMessage(content=prompt)])
     return {"final_verdict": response.content}
 
+# --- 5. Build Graph ---
 workflow = StateGraph(AgentState)
 workflow.add_node("researcher", researcher_node)
 workflow.add_node("synthesizer", synthesizer_node)
@@ -65,6 +122,6 @@ workflow.add_edge("synthesizer", END)
 
 app_graph = workflow.compile()
 
-def run_agent(claim: str):
-    result = app_graph.invoke({"query": claim})
+def run_agent(claim: str, image_url: str = None):
+    result = app_graph.invoke({"query": claim, "image_url": image_url})
     return result["final_verdict"]
