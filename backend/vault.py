@@ -16,7 +16,8 @@ index = pc.Index(index_name)
 # Load Embedding Model (Downloads once, runs locally)
 # 'all-mpnet-base-v2' is the industry standard for semantic search speed/quality balance
 print("🧠 Loading Embedding Model (This may take a moment)...")
-embedder = SentenceTransformer('all-mpnet-base-v2')
+# 'all-MiniLM-L6-v2' is 5x smaller (80MB)
+embedder = SentenceTransformer('all-MiniLM-L6-v2')
 
 def get_embedding(text):
     """Converts text into a list of 768 numbers."""
