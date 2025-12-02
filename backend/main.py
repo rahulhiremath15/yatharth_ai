@@ -15,7 +15,6 @@ tavily_tool = TavilySearchResults(max_results=5)
 def reverse_image_search(image_url: str):
     """
     Uses Google Lens (via SerpApi) to find the original context of an image.
-    Returns a summary of where this image has appeared before.
     """
     if not image_url:
         return "No image provided."
@@ -31,21 +30,23 @@ def reverse_image_search(image_url: str):
         results = search.get_dict()
         
         # Extract meaningful context
-        visual_matches = results.get("visual_matches", [])[:3]
+        visual_matches = results.get("visual_matches", [])[:5] # Get top 5
         knowledge_graph = results.get("knowledge_graph", {})
         
         summary = []
         if knowledge_graph.get("title"):
-            summary.append(f"Image Subject: {knowledge_graph.get('title')}")
+            summary.append(f"Subject Identified: {knowledge_graph.get('title')}")
             
         for match in visual_matches:
             title = match.get("title", "Unknown")
             source = match.get("source", "Unknown")
-            date = match.get("date", "Unknown date") # SerpApi sometimes provides dates
             link = match.get("link", "")
-            summary.append(f"Found on {source}: '{title}' ({link})")
+            summary.append(f"Found on {source}: '{title}'")
             
-        return "\n".join(summary) if summary else "No exact visual matches found."
+        if not summary:
+            return "No exact visual matches found. This often indicates the image is unique, new, or AI-generated."
+            
+        return "\n".join(summary)
     except Exception as e:
         return f"Image Search Failed: {str(e)}"
 
@@ -59,31 +60,41 @@ llm = ChatGroq(
 # --- 3. Define State ---
 class AgentState(TypedDict):
     query: str
-    image_url: Optional[str] # <--- NEW FIELD
+    image_url: Optional[str]
     research_data: str
     final_verdict: str
 
-# --- 4. Define Nodes ---
+# --- 4. Define Nodes (WITH THE FIX) ---
 def researcher_node(state: AgentState):
     query = state["query"]
     image_url = state.get("image_url")
     
     findings = []
     
-    # A. Text Research (Tavily)
-    if query:
+    # 1. Image Research (ALWAYS RUN IF IMAGE EXISTS)
+    if image_url:
+        image_results = reverse_image_search(image_url)
+        findings.append(f"IMAGE CONTEXT (Primary Evidence):\n{image_results}")
+    
+    # 2. Text Research (CONDITIONAL)
+    # The Fix: If an image exists, and the user asks a generic question, SKIP text search.
+    # This prevents the "Wipers Album" error.
+    skip_text = False
+    if image_url:
+        generic_triggers = ["is this real", "is this fake", "real or fake", "verify", "check this", "true?", "real?"]
+        # Check if the query is short and contains a generic trigger
+        if len(query.split()) < 10 and any(trigger in query.lower() for trigger in generic_triggers):
+            skip_text = True
+            findings.append("TEXT SEARCH SKIPPED: Query is generic; verifying based on Image Context only.")
+
+    if query and not skip_text:
         print(f"\n🔎 Researching Text: {query}")
         try:
             text_results = tavily_tool.invoke({"query": query})
             findings.append(f"TEXT EVIDENCE:\n{str(text_results)}")
         except:
             findings.append("Text search failed.")
-
-    # B. Image Research (SerpApi)
-    if image_url:
-        image_results = reverse_image_search(image_url)
-        findings.append(f"IMAGE CONTEXT:\n{image_results}")
-        
+            
     return {"research_data": "\n\n".join(findings)}
 
 def synthesizer_node(state: AgentState):
@@ -91,30 +102,29 @@ def synthesizer_node(state: AgentState):
     query = state["query"]
     image_url = state.get("image_url")
     
-    # We tweak the prompt to be stricter about Image Context
+    # We update the prompt to handle "No matches" correctly
     prompt = f"""
-    You are an expert Multi-Modal Fact Checker. 
+    You are an expert Multi-Modal Fact Checker.
     
     USER INPUT:
-    - Text: "{query}"
-    - Image Provided: {"Yes" if image_url else "No"}
+    - Claim: "{query}"
+    - Image Analysis: {data}
     
-    RESEARCH DATA:
-    {data}
+    CRITICAL RULES:
+    1. IF IMAGE IS PROVIDED: 
+       - Ignore any text evidence about albums, songs, or dictionary definitions (e.g. "Wipers - Is This Real").
+       - Focus ONLY on the "IMAGE CONTEXT".
+       - If "IMAGE CONTEXT" says "No exact visual matches found", it means the image is likely AI-generated or Fake. Verdict: "Unverified" or "False".
+       - If "IMAGE CONTEXT" lists stock photo sites (Freepik, Shutterstock) or AI art sites, Verdict: "False" (It is not a real event).
     
-    CRITICAL INSTRUCTIONS:
-    1. IF AN IMAGE IS PROVIDED: The text is a QUESTION about the image (e.g. "Is this real?" refers to the image). 
-       - Do NOT verify the text string itself as a topic (e.g. do not talk about albums/movies named "Is this real").
-       - Only look at the 'IMAGE CONTEXT' data.
-       - If the 'IMAGE CONTEXT' says "No visual matches" or identifies it as "Stock Photo" or "AI Generated", the verdict should be "False" or "Unverified".
-    
-    2. IF NO IMAGE IS PROVIDED: Verify the text claim directly.
-    
-    Respond with a raw JSON object:
+    2. IF NO IMAGE:
+       - Verify the claim using the Text Evidence.
+
+    Respond with this JSON structure:
     {{
         "verdict": "Verified", "False", "Misleading", or "Unverified",
-        "explanation": "Start by stating clearly what the image shows based on the research.",
-        "mood": "calm" (true), "spikey" (false/misleading), or "thinking" (unclear)
+        "explanation": "State clearly: 'This image appears to be...' (Cite the source found or lack of matches).",
+        "mood": "calm" (if true), "spikey" (if false/fake), or "thinking" (if unsure)
     }}
     """
     
