@@ -89,22 +89,31 @@ def researcher_node(state: AgentState):
 def synthesizer_node(state: AgentState):
     data = state["research_data"]
     query = state["query"]
+    image_url = state.get("image_url")
     
+    # We tweak the prompt to be stricter about Image Context
     prompt = f"""
     You are an expert Multi-Modal Fact Checker. 
-    Analyze the claim and/or image context below.
     
-    User Claim: "{query}"
-    Research Evidence: "{data}"
+    USER INPUT:
+    - Text: "{query}"
+    - Image Provided: {"Yes" if image_url else "No"}
     
-    Task:
-    1. If an image is provided, does the 'Image Context' match the User's Claim? (e.g., is the date/location correct?)
-    2. If no image, verify the text claim.
+    RESEARCH DATA:
+    {data}
+    
+    CRITICAL INSTRUCTIONS:
+    1. IF AN IMAGE IS PROVIDED: The text is a QUESTION about the image (e.g. "Is this real?" refers to the image). 
+       - Do NOT verify the text string itself as a topic (e.g. do not talk about albums/movies named "Is this real").
+       - Only look at the 'IMAGE CONTEXT' data.
+       - If the 'IMAGE CONTEXT' says "No visual matches" or identifies it as "Stock Photo" or "AI Generated", the verdict should be "False" or "Unverified".
+    
+    2. IF NO IMAGE IS PROVIDED: Verify the text claim directly.
     
     Respond with a raw JSON object:
     {{
         "verdict": "Verified", "False", "Misleading", or "Unverified",
-        "explanation": "Clear analysis citing specific sources/dates found.",
+        "explanation": "Start by stating clearly what the image shows based on the research.",
         "mood": "calm" (true), "spikey" (false/misleading), or "thinking" (unclear)
     }}
     """
