@@ -32,10 +32,7 @@ def reverse_image_search(image_url: str):
         if knowledge_graph.get("title"):
             summary.append(f"Subject: {knowledge_graph.get('title')}")
         for match in visual_matches:
-            title = match.get("title", "Unknown")
-            source = match.get("source", "Unknown")
-            link = match.get("link", "")
-            summary.append(f"Found on {source}: '{title}'")
+            summary.append(f"Found on {match.get('source')}: '{match.get('title')}'")
             
         return "\n".join(summary) if summary else "No exact visual matches found (Likely AI/Unique)."
     except Exception as e:
@@ -55,21 +52,18 @@ class AgentState(TypedDict):
     research_data: str
     final_verdict: str
 
-# --- 4. Nodes (NUCLEAR OPTION) ---
+# --- 4. Nodes (STRICT TEXT BLOCKER) ---
 def researcher_node(state: AgentState):
     query = state["query"]
     image_url = state.get("image_url")
     findings = []
     
-    # 1. Image Research (ALWAYS RUN)
+    # A. Image Search
     if image_url:
         findings.append(f"IMAGE CONTEXT:\n{reverse_image_search(image_url)}")
     
-    # 2. Text Research (STRICT BLOCK)
-    # If image exists, we assume text is just a question about the image.
-    # We ONLY run Tavily if the query is long/specific.
+    # B. Text Search (BLOCK GENERIC QUERIES)
     run_text_search = True
-    
     if image_url:
         # Block generic questions completely
         triggers = ["is this real", "real?", "fake", "verify", "check", "truth", "what is this", "true?"]
@@ -89,7 +83,6 @@ def researcher_node(state: AgentState):
     return {"research_data": "\n\n".join(findings)}
 
 def synthesizer_node(state: AgentState):
-    # Prompt explicitly handling "No matches"
     prompt = f"""
     You are an expert Fact Checker.
     
